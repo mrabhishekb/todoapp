@@ -21,18 +21,42 @@ public class TodoController {
         return todos;
     }
 
-    // POST /todos
+    // POST /todos → accepts single or multiple todos
     @PostMapping("/")
-    public ResponseEntity<Todo> createTodo(@RequestBody Todo todo) {
-        if (todo.getTitle() == null || todo.getTitle().isEmpty())
-            return ResponseEntity.badRequest().build();
+    public ResponseEntity<?> createTodos(@RequestBody Object body) {
+        try {
+            if (body instanceof List<?>) {
+                // When multiple todos are posted
+                List<?> list = (List<?>) body;
+                List<Todo> created = new ArrayList<>();
+                for (Object obj : list) {
+                    if (obj instanceof java.util.LinkedHashMap<?, ?> map) {
+                        Todo todo = mapToTodo(map);
+                        created.add(todo);
+                        todos.add(todo);
+                    }
+                }
+                return ResponseEntity.ok(created);
+            } else if (body instanceof java.util.LinkedHashMap<?, ?> map) {
+                // When single todo is posted
+                Todo todo = mapToTodo(map);
+                todos.add(todo);
+                return ResponseEntity.ok(todo);
+            } else {
+                return ResponseEntity.badRequest().body("Invalid request format");
+            }
+        } catch (Exception e) {
+            return ResponseEntity.badRequest().body("Error parsing request: " + e.getMessage());
+        }
+    }
 
+    private Todo mapToTodo(java.util.LinkedHashMap<?, ?> map) {
+        Todo todo = new Todo();
         todo.setId(nextId++);
-        if (todo.getDueDate() == null) todo.setDueDate(LocalDate.now().plusDays(1));
+        todo.setTitle((String) map.get("title"));
         todo.setCompleted(false);
-
-        todos.add(todo);
-        return ResponseEntity.ok(todo);
+        todo.setDueDate(LocalDate.now().plusDays(1));
+        return todo;
     }
 
     // PUT /todos/:id
