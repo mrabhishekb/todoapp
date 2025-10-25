@@ -12,6 +12,7 @@ import java.io.IOException;
 import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/todos")
@@ -55,18 +56,46 @@ public class TodoController{
     }
 
     @PostMapping("/")
-    public ResponseEntity<Todo> createTodo(@RequestBody Todo todo){
-        if (todo.getTitle() == null || todo.getTitle().isEmpty())
+    public ResponseEntity<?> createTodo(@RequestBody Object input) {
+        if (input instanceof List<?>) {
+            // Handle array of todos
+            List<?> rawList = (List<?>) input;
+            List<Todo> addedTodos = new ArrayList<>();
+            for (Object obj : rawList) {
+                if (obj instanceof Map) {
+                    Map<?, ?> map = (Map<?, ?>) obj;
+                    String title = (String) map.get("title");
+                    if (title == null || title.isEmpty()) continue;
+                    Todo todo = new Todo();
+                    todo.setId(nextId++);
+                    todo.setTitle(title);
+                    todo.setCompleted(false);
+                    todo.setDueDate(LocalDate.now().plusDays(1));
+                    todos.add(todo);
+                    addedTodos.add(todo);
+                }
+            }
+            saveTodos();
+            return ResponseEntity.ok(addedTodos);
+        } else if (input instanceof Map) {
+            // Handle single todo
+            Map<?, ?> map = (Map<?, ?>) input;
+            String title = (String) map.get("title");
+            if (title == null || title.isEmpty())
+                return ResponseEntity.badRequest().build();
+            Todo todo = new Todo();
+            todo.setId(nextId++);
+            todo.setTitle(title);
+            todo.setCompleted(false);
+            todo.setDueDate(LocalDate.now().plusDays(1));
+            todos.add(todo);
+            saveTodos();
+            return ResponseEntity.ok(todo);
+        } else {
             return ResponseEntity.badRequest().build();
-
-        todo.setId(nextId++);
-        if (todo.getDueDate() == null) todo.setDueDate(LocalDate.now().plusDays(1));
-        todo.setCompleted(false);
-
-        todos.add(todo);
-        saveTodos();
-        return ResponseEntity.ok(todo);
+        }
     }
+
 
     @PutMapping("/{id}")
     public ResponseEntity<Todo> updateTodo(@PathVariable int id, @RequestBody Todo updated){
